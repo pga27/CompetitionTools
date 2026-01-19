@@ -167,7 +167,11 @@ processPdfBtn.addEventListener('click', async () => {
     }
 
 
-    const pdfBytes = await outputPdf.save();
+    const pdfBytes = await outputPdf.save({
+        useObjectStreams: true,   // Groups objects into streams for better compression
+        addDefaultPage: false,    // Prevents adding extra blank pages
+        updateFieldAppearances: false // Skips generating appearances for form fields (saves space)
+    });
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob); link.download = 'reformatted.pdf'; link.click();
@@ -250,15 +254,16 @@ const genderMap = {
 generateCheckinBtn.onclick = () => {
     const { jsPDF } = window.jspdf;
 
+
     const drawTable = (doc, title, headers, rows) => {
         const pW = doc.internal.pageSize.getWidth();
-        if (base64WCA) doc.addImage(base64WCA, 'PNG', 10, 10, 20, 20);
-        if (base64CustomLogo) doc.addImage(base64CustomLogo, 'PNG', pW - 30, 10, 20, 20);
-        
+        if (base64WCA) doc.addImage(base64WCA, 'PNG', 10, 10, 20, 20, undefined, 'MEDIUM');
+        if (base64CustomLogo) doc.addImage(base64CustomLogo, 'PNG', pW - 30, 10, 20, 20, undefined, 'MEDIUM');
+
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text(title, pW/2, 22, { align: 'center' });
-        
+        doc.text(title, pW / 2, 22, { align: 'center' });
+
         doc.autoTable({
             startY: 30,
             head: [['', ...headers]],
@@ -268,21 +273,21 @@ generateCheckinBtn.onclick = () => {
                     const boxSize = 5;
                     const x = data.cell.x + (data.cell.width - boxSize) / 2;
                     const y = data.cell.y + (data.cell.height - boxSize) / 2;
-                    
+
                     doc.setDrawColor(40, 40, 40);
                     doc.setLineWidth(0.2);
-                    doc.rect(x, y, boxSize, boxSize); 
+                    doc.rect(x, y, boxSize, boxSize);
                 }
             },
-            headStyles: { 
+            headStyles: {
                 fillColor: [74, 144, 226],
-                halign: 'left' 
+                halign: 'left'
             },
             styles: {
                 valign: 'middle'
             },
             columnStyles: {
-                0: { cellWidth: 10 } 
+                0: { cellWidth: 10 }
             }
         });
     };
@@ -294,10 +299,18 @@ generateCheckinBtn.onclick = () => {
         a.href = url; a.download = filename; a.click();
     };
 
+
+
     // 1. Newcomers
     const newcomers = checkinData.filter(r => !r["WCA ID"] || r["WCA ID"] === 'null').sort((a, b) => a.Name.localeCompare(b.Name));
     if (newcomers.length) {
-        const pdfN = new jsPDF();
+        const pdfN = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: 'a4',
+            putOnlyUsedFonts: true, // Only include characters used in the PDF
+            compress: true          // Main compression toggle
+        });
 
         // Map the rows to include full gender names and birth dates
         const newcomerRows = newcomers.map(p => [
@@ -314,7 +327,7 @@ generateCheckinBtn.onclick = () => {
             ["ID", "Name", "Country", "Birth Date", "Gender"],
             newcomerRows
         );
-        autoDownload(pdfN, 'NewcomerCheckIn.pdf');
+        pdfN.save('NewcomerCheckIn.pdf');
     }
 
     // 2. Competitors (Exclude those in associate list if mode is ignore)
@@ -322,13 +335,25 @@ generateCheckinBtn.onclick = () => {
     const known = checkinData.filter(r => r["WCA ID"] && r["WCA ID"] !== 'null' && (associateMode.value !== 'ignore' || !assocIDs.has(r["WCA ID"])))
         .sort((a, b) => a.Name.localeCompare(b.Name));
 
-    const pdfK = new jsPDF();
+    const pdfK = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        putOnlyUsedFonts: true, // Only include characters used in the PDF
+        compress: true          // Main compression toggle
+    });
     drawTable(pdfK, "Competitor Check-In", ["ID", "Name", "WCA ID"], known.map(p => [p["Registrant Id"], p.Name, p["WCA ID"]]));
-    autoDownload(pdfK, 'CompetitorCheckIn.pdf');
+    pdfK.save('CompetitorCheckIn.pdf');
 
     // 3. Associates / Staff
     if (associateList.length && associateMode.value !== "none") {
-        const pdfA = new jsPDF();
+        const pdfA = new jsPDF({
+            orientation: 'p',
+            unit: 'mm',
+            format: 'a4',
+            putOnlyUsedFonts: true, // Only include characters used in the PDF
+            compress: true          // Main compression toggle
+        });
         const title = document.getElementById('associateTitle').value || "Extra Check-In List";
         const compMap = new Map(checkinData.map(p => [p["WCA ID"], p]));
 
@@ -343,7 +368,7 @@ generateCheckinBtn.onclick = () => {
 
         if (matched.length) {
             drawTable(pdfA, title, ["ID", "Name", "WCA ID"], matched);
-            autoDownload(pdfA, `${title}.pdf`);
+            pdfA.save(`${title}.pdf`);
         }
     }
 };
