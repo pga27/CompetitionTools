@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Competition Tools</title>
+    <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #3b82f6;
+            --border-color: #333;
+            --input-bg: #2a2a2a;
+        }
+
+        body.light-mode {
+            --bg-color: #f3f4f6;
+            --container-bg: #ffffff;
+            --text-color: #1f2937;
+            --accent-color: #2563eb;
+            --border-color: #d1d5db;
+            --input-bg: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .nav-btn {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .nav-btn.active {
+            border-bottom: 2px solid var(--accent-color);
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        .tool-card {
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="text"],
+        select {
+            background: var(--input-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .dropzone {
+            border: 2px dashed var(--accent-color);
+            background: rgba(59, 130, 246, 0.05);
+            transition: 0.3s;
+        }
+
+        .dropzone:hover {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .dropzone.success {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+    </style>
+</head>
+
+<body class="p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold mb-4">Competition Tools</h1>
+            <nav class="flex justify-center space-x-4 border-b border-gray-700">
+                <button onclick="openTab('badges')" id="btn-badges" class="nav-btn active">Badge Info</button>
+                <button onclick="openTab('pdf-format')" id="btn-pdf-format" class="nav-btn">PDF Formatter</button>
+                <button onclick="openTab('checkin')" id="btn-checkin" class="nav-btn">Check-in Sheets</button>
+            </nav>
+        </header>
+
+        <div id="badges" class="tab-content active tool-card p-6">
+            <h2 class="text-xl font-semibold mb-2">Competition Badges Info</h2>
+            <p class="text-sm opacity-70 mb-6">Gather competitor information and tasks for Canva Bulk Create.</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Competition ID</label>
+                    <input id="competitionID" type="text" placeholder="e.g. LisboaOpen2023"
+                        class="w-full p-2 rounded" />
+                </div>
+
+                <div class="flex flex-wrap gap-4">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="addPlaceholder" class="rounded" />
+                        <span>Add placeholder for extras</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="multiple_rooms" class="rounded" />
+                        <span>Multiple rooms</span>
+                    </label>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="handleBadgeDownload('tsv')"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">TSV</button>
+                    <button onclick="handleBadgeDownload('csv')"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">CSV</button>
+                    <button onclick="handleBadgeDownload('xlsx')"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">XLSX</button>
+                </div>
+                <p id="badge-error" class="text-red-500 text-sm hidden"></p>
+            </div>
+        </div>
+
+        <div id="pdf-format" class="tab-content tool-card p-6">
+            <h2 class="text-xl font-semibold mb-2">Badge PDF Formatter</h2>
+            <p class="text-sm opacity-70 mb-6">Format 2-page badges (front/back) into 4-per-sheet A4 for duplex
+                printing.</p>
+
+            <div class="space-y-4">
+                <input type="file" id="pdf-file-input" accept="application/pdf"
+                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700" />
+                <button id="process-pdf-btn"
+                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded font-medium">Generate
+                    Reformatted PDF</button>
+                <p id="pdf-status" class="text-sm italic opacity-80 hidden">Processing...</p>
+            </div>
+        </div>
+
+        <div id="checkin" class="tab-content tool-card p-6">
+            <h2 class="text-xl font-semibold mb-2">Check-in PDF Generator</h2>
+            <p class="text-sm opacity-70 mb-6">Generate Newcomer and Competitor check-in sheets from WCA CSV.</p>
+
+            <div class="space-y-6">
+                <div id="dropzone" class="dropzone p-8 rounded-xl text-center cursor-pointer">
+                    Click or Drag & Drop WCA Registration CSV
+                </div>
+                <input type="file" id="checkinFileInput" accept=".csv" class="hidden" />
+                <div id="dropzone-status" class="text-sm text-center"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Custom Logo (Optional)</label>
+                        <input type="file" id="customLogo" accept="image/*" class="text-sm w-full" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Extra List Mode</label>
+                        <select id="associate-mode" class="w-full p-2 rounded">
+                            <option value="none">No extra list</option>
+                            <option value="ignore">Associates (Competitors only)</option>
+                            <option value="include">Staff/Volunteers (All)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="extra-section" class="hidden space-y-4 border-t border-gray-700 pt-4">
+                    <input type="text" id="associateTitle" placeholder="Title for extra PDF"
+                        class="w-full p-2 rounded" />
+                    <div id="associate-dropzone" class="dropzone p-4 rounded text-center cursor-pointer text-sm">
+                        Drop Extra CSV (fullName, wcaID)
+                    </div>
+                    <input type="file" id="associateFile" accept=".csv" class="hidden" />
+                    <div id="associate-dropzone-status" class="text-sm"></div>
+                </div>
+
+                <button id="generate-checkin-btn" disabled
+                    class="w-full bg-blue-600 disabled:bg-gray-600 text-white py-3 rounded-lg font-bold">Generate All
+                    PDFs</button>
+            </div>
+        </div>
+
+        <footer class="mt-12 flex flex-col items-center space-y-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-sm">Dark Mode</span>
+                <input type="checkbox" id="themeToggle" class="w-10 h-5" />
+                <span class="text-sm">Light Mode</span>
+            </div>
+            </header>
+    </div>
+
+    <script src="./countryList.js"></script>
+    <script type="module" src="./main.js"></script>
+
+    <script>
+        // Simple Tab Switcher
+        function openTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('btn-' + tabId).classList.add('active');
+        }
+
+        // Theme Toggle Logic
+        const themeToggle = document.getElementById("themeToggle");
+        themeToggle.addEventListener("change", () => {
+            document.body.classList.toggle("light-mode", themeToggle.checked);
+        });
+    </script>
+</body>
+
+</html>
