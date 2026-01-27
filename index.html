@@ -89,6 +89,73 @@
             border-color: #10b981;
             background: rgba(16, 185, 129, 0.1);
         }
+
+        /* Tooltip Parent */
+        .help-tooltip {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* The Question Mark Circle */
+        .help-icon {
+            width: 20px;
+            height: 20px;
+            background-color: var(--accent-color);
+            color: white;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: help;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+        .help-icon:hover {
+            transform: scale(1.1);
+        }
+
+        /* Hidden Image Container */
+        .tooltip-content {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 125%;
+            /* Show above the icon */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            /* Adjust based on your image aspect ratio */
+            background-color: #333;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            pointer-events: none;
+            /* Prevents tooltip from blocking clicks */
+        }
+
+        /* Show on Hover */
+        .help-tooltip:hover .tooltip-content {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Tooltip Arrow */
+        .tooltip-content::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -8px;
+            border-width: 8px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
     </style>
 </head>
 
@@ -155,10 +222,20 @@
 
         <div id="checkin" class="tab-content tool-card p-6">
             <h2 class="text-xl font-semibold mb-2">Check-in PDF Generator</h2>
-            <p class="text-sm opacity-70 mb-6">Generate Newcomer and Competitor check-in sheets from WCA CSV.</p>
+            <p class="text-sm opacity-70 mb-6">Generate Newcomer and Competitor check-in sheets from WCA CSV.
+            <div class="help-tooltip">
+                <span class="help-icon">?</span>
+                <div class="tooltip-content">
+                    <p class="mb-2 text-xs text-white">Export the CSV from the 'Registrations' page:</p>
+                    <img src="./export_image.png" alt="How to export"
+                        class="rounded border border-gray-500 shadow-xl" />
+                </div>
+            </div>
+            </p>
 
             <div class="space-y-6">
-                <div id="dropzone" class="dropzone p-8 rounded-xl text-center cursor-pointer">
+                <div id="dropzone"
+                    class="dropzone p-8 rounded-xl text-center cursor-pointer flex items-end justify-center">
                     Click or Drag & Drop WCA Registration CSV
                 </div>
                 <input type="file" id="checkinFileInput" accept=".csv" class="hidden" />
