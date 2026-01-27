@@ -208,8 +208,46 @@ checkinInput.onchange = e => handleFile(e.target.files[0], 'main');
 associateDropzone.onclick = () => associateFileInput.click();
 associateFileInput.onchange = e => handleFile(e.target.files[0], 'associate');
 
+// --- UNIFIED DRAG & DROP INITIALIZATION ---
+const setupDropzone = (zoneId, inputId, type) => {
+    const zone = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    if (!zone || !input) return;
+
+    zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+        zone.addEventListener(evt, () => {
+            zone.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/20');
+        });
+    });
+
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        if (e.dataTransfer.files.length) {
+            if (type === 'pdf-reformat') {
+                input.files = e.dataTransfer.files;
+                // Trigger the file input change manually or call the processing function
+                input.dispatchEvent(new Event('change'));
+            } else {
+                handleFile(e.dataTransfer.files[0], type);
+            }
+        }
+    });
+};
+
+// Initialize them
+setupDropzone('dropzone', 'checkinFileInput', 'main');
+setupDropzone('associate-dropzone', 'associateFile', 'associate');
+// Bonus: Drag and Drop for the Badge Formatter
+setupDropzone('pdf-format', 'pdf-file-input', 'pdf-reformat');
+
 function handleFile(file, type) {
     if (!file) return;
+    console.log('handling file');
     Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
