@@ -3,6 +3,44 @@ import { PDFDocument, rgb } from 'https://cdn.skypack.dev/pdf-lib';
 // --- SHARED UTILS ---
 window.jsPDF = window.jspdf ? window.jspdf.jsPDF : null;
 
+// --- CJK FONT SUPPORT ---
+// jsPDF's built-in fonts (Helvetica, Times, etc.) do not include CJK glyphs.
+// We load Noto Sans SC (supports Chinese, Japanese, Korean) and register it
+// as a custom font so all text renders correctly regardless of script.
+let cjkFontBase64 = null;
+
+async function loadCJKFont() {
+    if (cjkFontBase64) return;
+    try {
+        const response = await fetch('./fonts/NotoSansKR-Regular.ttf');
+        if (!response.ok) throw new Error('Font file not found');
+        const fontBuffer = await response.arrayBuffer();
+        cjkFontBase64 = arrayBufferToBase64(fontBuffer);
+    } catch (e) {
+        console.error('Could not load CJK font. Non-Latin characters may not render.', e);
+    }
+}
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+/**
+ * Registers the CJK font with a jsPDF instance.
+ * Must be called after loadCJKFont() has resolved.
+ */
+function registerCJKFont(doc) {
+    if (!cjkFontBase64) return;
+    doc.addFileToVFS('NotoSans-Regular.ttf', cjkFontBase64);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'bold');   // alias so bold lookups don't crash
+    doc.setFont('NotoSans', 'normal');
+}
+
 // --- PROJECT 1: BADGE INFO LOGIC ---
 async function fetchCompetitionData() {
     const competitionID = document.getElementById("competitionID").value.trim();
@@ -193,6 +231,9 @@ const loadLogo = async () => {
 };
 loadLogo();
 
+// Pre-load CJK font in the background so it's ready when generation starts
+loadCJKFont();
+
 const dropzone = document.getElementById('dropzone');
 const checkinInput = document.getElementById('checkinFileInput');
 const associateDropzone = document.getElementById('associate-dropzone');
@@ -289,9 +330,27 @@ const genderMap = {
     'o': 'Other'
 };
 
-generateCheckinBtn.onclick = () => {
+// Helper: create a jsPDF instance with the CJK font already registered and active.
+// This replaces the raw `new jsPDF(...)` calls so Unicode support is always on.
+function createPdf(options = {}) {
     const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        putOnlyUsedFonts: true, // Only embed glyphs actually used — keeps file size down
+        compress: true,          // Deflate-compress streams
+        ...options
+    });
+    // Register and activate the CJK-capable font so Mandarin, Korean, etc. render correctly.
+    registerCJKFont(doc);
+    return doc;
+}
 
+generateCheckinBtn.onclick = async () => {
+    // Ensure the CJK font is loaded before generating any PDFs.
+    // loadCJKFont() is idempotent — if already loaded, it returns immediately.
+    await loadCJKFont();
 
     const drawTable = (doc, title, headers, rows) => {
         const pW = doc.internal.pageSize.getWidth();
@@ -299,7 +358,8 @@ generateCheckinBtn.onclick = () => {
         if (base64CustomLogo) doc.addImage(base64CustomLogo, 'PNG', pW - 30, 10, 20, 20, undefined, 'MEDIUM');
 
         doc.setFontSize(18);
-        doc.setFont(undefined, 'bold');
+        // Use the registered CJK font for the title so special characters render correctly
+        doc.setFont('NotoSans', 'normal');
         doc.text(title, pW / 2, 22, { align: 'center' });
 
         doc.autoTable({
@@ -319,10 +379,12 @@ generateCheckinBtn.onclick = () => {
             },
             headStyles: {
                 fillColor: [74, 144, 226],
-                halign: 'left'
+                halign: 'left',
+                font: 'NotoSans'   // CJK font for table headers
             },
             styles: {
-                valign: 'middle'
+                valign: 'middle',
+                font: 'NotoSans'   // CJK font for all table body cells
             },
             columnStyles: {
                 0: { cellWidth: 10 }
@@ -342,13 +404,7 @@ generateCheckinBtn.onclick = () => {
     // 1. Newcomers
     const newcomers = checkinData.filter(r => !r["WCA ID"] || r["WCA ID"] === 'null').sort((a, b) => a.Name.localeCompare(b.Name));
     if (newcomers.length) {
-        const pdfN = new jsPDF({
-            orientation: 'p',
-            unit: 'mm',
-            format: 'a4',
-            putOnlyUsedFonts: true, // Only include characters used in the PDF
-            compress: true          // Main compression toggle
-        });
+        const pdfN = createPdf();
 
         // Map the rows to include full gender names and birth dates
         const newcomerRows = newcomers.map(p => [
@@ -373,25 +429,13 @@ generateCheckinBtn.onclick = () => {
     const known = checkinData.filter(r => r["WCA ID"] && r["WCA ID"] !== 'null' && (associateMode.value !== 'ignore' || !assocIDs.has(r["WCA ID"])))
         .sort((a, b) => a.Name.localeCompare(b.Name));
 
-    const pdfK = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-        putOnlyUsedFonts: true, // Only include characters used in the PDF
-        compress: true          // Main compression toggle
-    });
+    const pdfK = createPdf();
     drawTable(pdfK, "Competitor Check-In", ["ID", "Name", "WCA ID"], known.map(p => [p["Registrant Id"], p.Name, p["WCA ID"]]));
     pdfK.save('CompetitorCheckIn.pdf');
 
     // 3. Associates / Staff
     if (associateList.length && associateMode.value !== "none") {
-        const pdfA = new jsPDF({
-            orientation: 'p',
-            unit: 'mm',
-            format: 'a4',
-            putOnlyUsedFonts: true, // Only include characters used in the PDF
-            compress: true          // Main compression toggle
-        });
+        const pdfA = createPdf();
         const title = document.getElementById('associateTitle').value || "Extra Check-In List";
         const compMap = new Map(checkinData.map(p => [p["WCA ID"], p]));
 
