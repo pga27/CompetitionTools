@@ -111,6 +111,7 @@ window.handleBadgeDownload = async function (type) {
 
     const { personInfo, events } = getPersonsInfo(data);
     const multipleRooms = document.getElementById("multiple_rooms")?.checked;
+    const fixedStations = document.getElementById("fixed_stations")?.checked;
     const separator = type === 'csv' ? ',' : '\t';
 
     let output = `name${separator}wcaID${separator}region${separator}registrantId${separator}role`;
@@ -122,19 +123,24 @@ window.handleBadgeDownload = async function (type) {
 
         events.forEach(event => {
             let comp = '', tasks = [];
+            p.assignments.sort((a, b) => a.activityId - b.activityId);
             p.assignments.forEach(a => {
                 const [ev, rnd, grp] = a.activityCode?.split('-') || [];
                 if (ev === event && rnd === 'r1') {
                     const detail = grp?.slice(1) || '';
-                    if (a.assignmentCode === 'competitor') comp = multipleRooms ? detail + a.room[0] : detail;
-                    else {
+                    if (a.assignmentCode === 'competitor') {
+                        comp = multipleRooms ? detail + a.room[0] : detail;
+                        if (a.stationNumber != null) comp += fixedStations ? ' (' + a.stationNumber + ')' : '';
+                    } else {
                         let t = (a.assignmentCode.split('-')[1]?.[0] || 'S').toUpperCase() + detail;
-                        tasks.push(multipleRooms ? t + '-' + a.room[0] : t);
+                        t += multipleRooms ? '-' + a.room[0] : '';
+                        if (a.stationNumber != null) t += fixedStations ? ' (' + a.stationNumber + ')' : '';
+                        tasks.push(t);
                     }
                 }
             });
-            let taskStr = tasks.join(',');
-            if (taskStr.includes(',')) taskStr = `"${taskStr}"`;
+            let taskStr = tasks.join(' | ');
+            if (taskStr.includes('|')) taskStr = `"${taskStr}"`;
             output += `${separator}${taskStr}${separator}${comp}`;
         });
     });
