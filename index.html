@@ -168,6 +168,8 @@
                 <button onclick="openTab('badges')" id="btn-badges" class="nav-btn active">Badge Info</button>
                 <button onclick="openTab('pdf-format')" id="btn-pdf-format" class="nav-btn">PDF Formatter</button>
                 <button onclick="openTab('checkin')" id="btn-checkin" class="nav-btn">Check-in Sheets</button>
+                <button onclick="openTab('group-overview')" id="btn-group-overview" class="nav-btn">Group
+                    Overview</button>
             </nav>
         </header>
 
@@ -276,6 +278,24 @@
             </div>
         </div>
 
+        <div id="group-overview" class="tab-content tool-card p-6">
+            <h2 class="text-xl font-semibold mb-2">Group Overview PDF</h2>
+            <p class="text-sm opacity-70 mb-6">Generate a printable group overview sheet from a WCA competition.</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Competition ID</label>
+                    <input id="go-comp-id" type="text" placeholder="e.g. FelgueirasaoCubo2026"
+                        class="w-full p-2 rounded" />
+                </div>
+                <button id="go-btn" onclick="generateGroupOverview()"
+                    class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-6 py-2 rounded font-medium">
+                    Generate PDF
+                </button>
+                <p id="go-status" class="text-sm italic opacity-80"></p>
+            </div>
+        </div>
+
         <footer class="mt-12 flex flex-col items-center space-y-4">
             <div class="flex items-center space-x-2">
                 <span class="text-sm">Dark Mode</span>
@@ -287,6 +307,7 @@
 
     <script src="./countryList.js"></script>
     <script type="module" src="./main.js"></script>
+    <script type="module" src="./group_overview.js"></script>
 
     <script>
         // Simple Tab Switcher

@@ -114,19 +114,41 @@ window.handleBadgeDownload = async function (type) {
     const fixedStations = document.getElementById("fixed_stations")?.checked;
     const separator = type === 'csv' ? ',' : '\t';
 
+    // Collect all event-round combos that actually have assignments
+    const eventRoundSet = new Set();
+    personInfo.forEach(p => {
+        p.assignments.forEach(a => {
+            const [ev, rnd] = a.activityCode?.split('-') || [];
+            if (ev && rnd && events.includes(ev)) {
+                eventRoundSet.add(`${ev}-${rnd}`);
+            }
+        });
+    });
+
+    // Sort so r1 < r2 < r3 etc, preserving event order from `events`
+    const eventRounds = [...eventRoundSet].sort((a, b) => {
+        const [evA, rndA] = a.split('-');
+        const [evB, rndB] = b.split('-');
+        const evDiff = events.indexOf(evA) - events.indexOf(evB);
+        return evDiff !== 0 ? evDiff : rndA.localeCompare(rndB);
+    });
+
     let output = `name${separator}wcaID${separator}region${separator}registrantId${separator}role`;
-    events.forEach(e => output += `${separator}${e}-tasks${separator}${e}-comp`);
+    eventRounds.forEach(er => output += `${separator}${er}-tasks${separator}${er}-comp`);
 
     personInfo.forEach(p => {
         const region = countryCodes[p.region] || p.region;
         output += `\n${p.name}${separator}${p.wcaId || 'NEWCOMER'}${separator}${region}${separator}${p.registrantId}${separator}${p.role}`;
 
-        events.forEach(event => {
+        p.assignments.sort((a, b) => a.activityId - b.activityId);
+
+        eventRounds.forEach(eventRound => {
+            const [event, round] = eventRound.split('-');
             let comp = '', tasks = [];
-            p.assignments.sort((a, b) => a.activityId - b.activityId);
+
             p.assignments.forEach(a => {
                 const [ev, rnd, grp] = a.activityCode?.split('-') || [];
-                if (ev === event && rnd === 'r1') {
+                if (ev === event && rnd === round) {
                     const detail = grp?.slice(1) || '';
                     if (a.assignmentCode === 'competitor') {
                         comp = multipleRooms ? detail + a.room[0] : detail;
@@ -139,6 +161,7 @@ window.handleBadgeDownload = async function (type) {
                     }
                 }
             });
+
             let taskStr = tasks.join(' | ');
             if (taskStr.includes('|')) taskStr = `"${taskStr}"`;
             output += `${separator}${taskStr}${separator}${comp}`;
@@ -460,3 +483,23 @@ generateCheckinBtn.onclick = async () => {
         }
     }
 };
+
+async function genGroupOverview() {
+    comp_id = document.getElementById('group_overview_comp_id')
+    const response = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${comp_id}/wcif/public`);
+    if (!response.ok) throw new Error("Failed to fetch data. Check the ID.");
+    wcif = response.json();
+    const allActivities = {};
+    wcif.schedule.venues.forEach(venue => {
+        venue.rooms.forEach(room => {
+            room.activities.forEach(act => {
+                const activityMap = (a) => {
+                    allActivities[a.id] = { name: a.name, activityCode: a.activityCode, room: room.name };
+                    if (a.childActivities) a.childActivities.forEach(activityMap);
+                };
+                if (act.id)
+                    activityMap(act);
+            });
+        });
+    });
+}
