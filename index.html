@@ -168,8 +168,7 @@
                 <button onclick="openTab('badges')" id="btn-badges" class="nav-btn active">Badge Info</button>
                 <button onclick="openTab('pdf-format')" id="btn-pdf-format" class="nav-btn">PDF Formatter</button>
                 <button onclick="openTab('checkin')" id="btn-checkin" class="nav-btn">Check-in Sheets</button>
-                <button onclick="openTab('group-overview')" id="btn-group-overview" class="nav-btn">Group
-                    Overview</button>
+                <button onclick="openTab('group-overview')" id="btn-group-overview" class="nav-btn">Group Overview</button>
             </nav>
         </header>
 
@@ -283,11 +282,35 @@
             <p class="text-sm opacity-70 mb-6">Generate a printable group overview sheet from a WCA competition.</p>
 
             <div class="space-y-4">
-                <div>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="go-source" id="go-source-fetch" value="fetch" checked
+                            onchange="document.getElementById('go-fetch-section').classList.remove('hidden'); document.getElementById('go-upload-section').classList.add('hidden');" />
+                        <span class="text-sm font-medium">Fetch from WCA</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="go-source" id="go-source-upload" value="upload"
+                            onchange="document.getElementById('go-upload-section').classList.remove('hidden'); document.getElementById('go-fetch-section').classList.add('hidden');" />
+                        <span class="text-sm font-medium">Upload WCIF file</span>
+                    </label>
+                </div>
+
+                <div id="go-fetch-section">
                     <label class="block text-sm font-medium mb-1">Competition ID</label>
                     <input id="go-comp-id" type="text" placeholder="e.g. FelgueirasaoCubo2026"
                         class="w-full p-2 rounded" />
                 </div>
+
+                <div id="go-upload-section" class="hidden">
+                    <label class="block text-sm font-medium mb-1">WCIF JSON File</label>
+                    <div id="go-dropzone" class="dropzone p-6 rounded-xl text-center cursor-pointer text-sm"
+                        onclick="document.getElementById('go-file-input').click()">
+                        Click or drag & drop WCIF JSON file
+                    </div>
+                    <input type="file" id="go-file-input" accept=".json" class="hidden" />
+                    <p id="go-file-status" class="text-xs mt-1 opacity-70"></p>
+                </div>
+
                 <button id="go-btn" onclick="generateGroupOverview()"
                     class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-6 py-2 rounded font-medium">
                     Generate PDF

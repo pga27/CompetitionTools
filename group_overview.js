@@ -49,18 +49,18 @@ const FOOTER_H = 5;
 const USABLE_H = PH - M * 2 - FOOTER_H;
 
 const C = {
-  titleBg: [27, 63, 110],
+  titleBg:  [27,  63,  110],
   titleTxt: [255, 255, 255],
-  subBg: [220, 230, 242],
-  subFg: [27, 63, 110],
-  alt: [239, 245, 252],
+  subBg:    [220, 230, 242],
+  subFg:    [27,  63,  110],
+  alt:      [239, 245, 252],
   staffAlt: [244, 248, 255],
-  stnBg: [27, 63, 110],
-  stnTxt: [255, 255, 255],
-  border: [184, 200, 220],
-  text: [17, 17, 17],
-  sectBg: [226, 236, 248],
-  sectFg: [27, 63, 110],
+  stnBg:    [27,  63,  110],
+  stnTxt:   [255, 255, 255],
+  border:   [184, 200, 220],
+  text:     [17,  17,  17],
+  sectBg:   [226, 236, 248],
+  sectFg:   [27,  63,  110],
 };
 
 // ─── WCIF helpers ─────────────────────────────────────────────────────────────
@@ -90,25 +90,25 @@ function extractGroupData(wcif) {
           acts.push({ ...child, roomName });
   acts.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
-  return acts.map(act => {
+  return acts.filter(act => Object.keys(lookup[act.id] ?? {}).length > 0).map(act => {
     const comps = [], judges = [], scramblers = [], runners = [];
     for (const [name, { stn, code }] of Object.entries(lookup[act.id] ?? {})) {
       const e = { name, stn };
-      if (code === 'competitor') comps.push(e);
-      else if (code === 'staff-judge') judges.push(e);
+      if      (code === 'competitor')      comps.push(e);
+      else if (code === 'staff-judge')     judges.push(e);
       else if (code === 'staff-scrambler') scramblers.push(e);
-      else if (code === 'staff-runner') runners.push(e);
+      else if (code === 'staff-runner')    runners.push(e);
     }
 
-    const byStn = (a, b) => a.stn == null && b.stn == null ? a.name.localeCompare(b.name)
-      : a.stn == null ? 1 : b.stn == null ? -1 : a.stn - b.stn;
+    const byStn  = (a, b) => a.stn == null && b.stn == null ? a.name.localeCompare(b.name)
+                            : a.stn == null ? 1 : b.stn == null ? -1 : a.stn - b.stn;
     const byName = (a, b) => a.name.localeCompare(b.name);
     comps.sort(byStn); judges.sort(byStn);
     scramblers.sort(byName); runners.sort(byName);
 
     const hasStn = arr => arr.some(x => x.stn != null);
     const stationMode = hasStn(comps) && hasStn(judges) ? 'both'
-      : hasStn(comps) ? 'competitor-only' : 'none';
+                      : hasStn(comps)                   ? 'competitor-only' : 'none';
 
     let rows, judgesUnassigned = [];
 
@@ -143,8 +143,8 @@ function extractGroupData(wcif) {
 // ─── Height estimation ────────────────────────────────────────────────────────
 function groupBlockHeight({ rows, judgesUnassigned: ju, scramblers: sc, runners: ru }) {
   const secH = arr => arr.length ? SECT_H + arr.length * ROW_H : 0;
-  const mainH = TITLE_H + SUB_H + rows.length * ROW_H
-    + (ju?.length ? SECT_H + Math.ceil(ju.length / 2) * ROW_H : 0);
+  const mainH  = TITLE_H + SUB_H + rows.length * ROW_H
+               + (ju?.length ? SECT_H + Math.ceil(ju.length / 2) * ROW_H : 0);
   const staffH = TITLE_H + secH(sc) + secH(ru);
   return Math.max(mainH, staffH);
 }
@@ -196,7 +196,7 @@ function drawGroup(doc, group, startY) {
   const x0 = M;
   let y = startY;
 
-  const showStn = mode !== 'none';
+  const showStn   = mode !== 'none';
   const showJudge = mode !== 'competitor-only';
   const stnW = showStn ? STN_W : 0;
 
@@ -225,7 +225,7 @@ function drawGroup(doc, group, startY) {
 
   // Sub-header
   filledRect(doc, x0, y, COL_MAIN, SUB_H, C.subBg);
-  const compCount = rows.filter(r => r.competitor).length;
+  const compCount  = rows.filter(r => r.competitor).length;
   const judgeCount = mode === 'competitor-only' ? ju.length : rows.filter(r => r.judge).length;
 
   drawText(doc, `Competitor (${compCount})`, compX + pad, midH(SUB_H),
@@ -338,30 +338,73 @@ function packPages(groups) {
   return pages;
 }
 
+// ─── File upload / dropzone wiring ───────────────────────────────────────────
+let uploadedWcif = null;
+
+function setupGroupOverviewDropzone() {
+  const dropzone  = document.getElementById('go-dropzone');
+  const fileInput = document.getElementById('go-file-input');
+  const fileStatus = document.getElementById('go-file-status');
+
+  const loadFile = file => {
+    if (!file || !file.name.endsWith('.json')) {
+      fileStatus.textContent = 'Please select a .json file.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        uploadedWcif = JSON.parse(e.target.result);
+        dropzone.classList.add('success');
+        fileStatus.textContent = `✓ Loaded: ${file.name}`;
+      } catch {
+        uploadedWcif = null;
+        fileStatus.textContent = 'Invalid JSON file.';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  fileInput.addEventListener('change', () => loadFile(fileInput.files[0]));
+  dropzone.addEventListener('dragover',  e => { e.preventDefault(); dropzone.classList.add('success'); });
+  dropzone.addEventListener('dragleave', () => { if (!uploadedWcif) dropzone.classList.remove('success'); });
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    loadFile(e.dataTransfer.files[0]);
+  });
+}
+
+// Run once the DOM is ready
+document.addEventListener('DOMContentLoaded', setupGroupOverviewDropzone);
+
 // ─── Public entry point ───────────────────────────────────────────────────────
-
-/**
- * Fetches WCIF, generates the group overview PDF and triggers download.
- * Called from the HTML button.
- */
 window.generateGroupOverview = async function () {
-  const compId = document.getElementById('go-comp-id').value.trim();
   const statusEl = document.getElementById('go-status');
-  const btnEl = document.getElementById('go-btn');
+  const btnEl    = document.getElementById('go-btn');
+  const source   = document.querySelector('input[name="go-source"]:checked').value;
 
-  if (!compId) { statusEl.textContent = 'Please enter a competition ID.'; return; }
-
-  statusEl.textContent = 'Fetching competition data…';
+  statusEl.textContent = '';
   btnEl.disabled = true;
 
   try {
-    const res = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${compId}/wcif/public`);
-    if (!res.ok) throw new Error(`Could not fetch "${compId}". Check the ID.`);
-    const wcif = await res.json();
+    let wcif, filename;
+
+    if (source === 'fetch') {
+      const compId = document.getElementById('go-comp-id').value.trim();
+      if (!compId) throw new Error('Please enter a competition ID.');
+      statusEl.textContent = 'Fetching competition data…';
+      const res = await fetch(`https://www.worldcubeassociation.org/api/v0/competitions/${compId}/wcif/public`);
+      if (!res.ok) throw new Error(`Could not fetch "${compId}". Check the ID.`);
+      wcif = await res.json();
+      filename = `${compId}_group_overview.pdf`;
+
+    } else {
+      if (!uploadedWcif) throw new Error('Please upload a WCIF JSON file first.');
+      wcif = uploadedWcif;
+      filename = `${wcif.id ?? 'competition'}_group_overview.pdf`;
+    }
 
     statusEl.textContent = 'Generating PDF…';
-
-    // Ensure CJK font is loaded (reuses the loader already in main.js)
     await loadCJKFont();
 
     const groups = extractGroupData(wcif);
@@ -369,10 +412,8 @@ window.generateGroupOverview = async function () {
 
     const pages = packPages(groups);
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-      orientation: 'p', unit: 'mm', format: 'a4',
-      putOnlyUsedFonts: true, compress: true
-    });
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4',
+                             putOnlyUsedFonts: true, compress: true });
     registerCJKFont(doc);
 
     pages.forEach((pageGroups, i) => {
@@ -382,7 +423,7 @@ window.generateGroupOverview = async function () {
       drawFooter(doc, i + 1, pages.length);
     });
 
-    doc.save(`${compId}_group_overview.pdf`);
+    doc.save(filename);
     statusEl.textContent = `Done — ${pages.length} page(s).`;
   } catch (err) {
     statusEl.textContent = `Error: ${err.message}`;
