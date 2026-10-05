@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Certificate Generator · Competition Tools</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="./certificates/certificates.css" />
+</head>
+
+<body>
+    <header class="topbar">
+        <a href="./index.html" class="back">← Competition Tools</a>
+        <h1>Certificate Generator</h1>
+        <label class="theme"><input type="checkbox" id="themeToggle" /> Light mode</label>
+    </header>
+
+    <div class="layout">
+        <!-- ─── Left: data + generation ─────────────────────────────────── -->
+        <aside class="panel" id="left-panel">
+            <section>
+                <h2><span class="step">1</span> Competition data</h2>
+                <div class="seg">
+                    <label><input type="radio" name="src" value="upload" checked /> Upload WCIF</label>
+                    <label><input type="radio" name="src" value="fetch" /> Fetch from WCA</label>
+                </div>
+                <div id="src-upload">
+                    <div id="wcif-drop" class="dropzone" tabindex="0">Click or drop the WCIF <code>.json</code> file</div>
+                    <input type="file" id="wcif-input" accept=".json,application/json" hidden />
+                </div>
+                <div id="src-fetch" hidden>
+                    <div class="row-inline">
+                        <input type="text" id="comp-id" placeholder="e.g. LisboaOpen2026" />
+                        <button id="fetch-btn" class="btn">Fetch</button>
+                    </div>
+                    <p class="hint">Uses the public WCIF, which does not include unaccepted registrations.</p>
+                </div>
+                <p id="data-status" class="status"></p>
+
+                <div id="data-options" hidden>
+                    <label class="field">Events per competitor
+                        <select id="event-source">
+                            <option value="registered">Registered events</option>
+                            <option value="results">Events with results (after the competition)</option>
+                        </select>
+                    </label>
+                    <label class="check"><input type="checkbox" id="skip-empty" /> Skip competitors with no events</label>
+                </div>
+            </section>
+
+            <section id="competitors-section" hidden>
+                <h2><span class="step">2</span> Competitors</h2>
+                <input type="search" id="comp-search" placeholder="Search name, WCA ID or country" />
+                <div class="row-inline small">
+                    <button class="link" id="select-all">Select all</button>
+                    <button class="link" id="select-none">Select none</button>
+                    <span id="selected-count" class="muted"></span>
+                </div>
+                <ul id="competitor-list" class="competitors"></ul>
+                <p class="hint">Click a name to preview their certificate in the editor.</p>
+            </section>
+
+            <section>
+                <h2><span class="step">3</span> Generate</h2>
+                <label class="field">Output
+                    <select id="output-mode">
+                        <option value="zip">ZIP with one PDF per competitor</option>
+                        <option value="merged">Single PDF (one page per competitor)</option>
+                    </select>
+                </label>
+                <label class="field">File name
+                    <input type="text" id="filename-pattern" value="{name}" />
+                </label>
+                <button id="generate-btn" class="btn primary wide">Generate certificates</button>
+                <progress id="gen-progress" value="0" max="1" hidden></progress>
+                <p id="gen-status" class="status"></p>
+            </section>
+        </aside>
+
+        <!-- ─── Centre: editor ──────────────────────────────────────────── -->
+        <main class="editor">
+            <div class="toolbar">
+                <div class="group" aria-label="Add element">
+                    <span class="group-label">Add</span>
+                    <button data-add="text" title="Text field (supports placeholders)">T Text</button>
+                    <button data-add="image" title="Image or logo">🖼 Image</button>
+                    <button data-add="rect" title="Rectangle">▭ Rect</button>
+                    <button data-add="ellipse" title="Ellipse">◯ Ellipse</button>
+                    <button data-add="line" title="Line">― Line</button>
+                    <button data-add="flag" title="Competitor's country flag">⚑ Flag</button>
+                    <button data-add="events" title="Icons for the competitor's events">◆ Events</button>
+                </div>
+                <div class="group">
+                    <button id="undo-btn" title="Undo (Ctrl+Z)">↶</button>
+                    <button id="redo-btn" title="Redo (Ctrl+Shift+Z)">↷</button>
+                    <select id="zoom" title="Zoom">
+                        <option value="fit">Fit</option>
+                        <option value="0.5">50%</option>
+                        <option value="0.75">75%</option>
+                        <option value="1">100%</option>
+                        <option value="1.5">150%</option>
+                        <option value="2">200%</option>
+                    </select>
+                    <label class="check" title="Snap to the page, other elements and a 1 mm grid"><input type="checkbox" id="snap" checked /> Snap</label>
+                </div>
+                <div class="group">
+                    <span class="group-label">Template</span>
+                    <button id="new-tpl" title="Start again from the default template">New</button>
+                    <button id="load-tpl" title="Load a template file">Open…</button>
+                    <button id="save-tpl" title="Download the template to reuse later">Save</button>
+                    <input type="file" id="tpl-input" accept=".json,application/json" hidden />
+                </div>
+            </div>
+
+            <div class="preview-bar">
+                <span>Previewing:</span>
+                <button id="prev-person" title="Previous competitor">‹</button>
+                <strong id="preview-name"></strong>
+                <button id="next-person" title="Next competitor">›</button>
+                <button id="preview-pdf" class="btn small">Preview PDF</button>
+            </div>
+
+            <div class="canvas-wrap" id="canvas-wrap">
+                <div class="page" id="page"></div>
+            </div>
+        </main>
+
+        <!-- ─── Right: properties ───────────────────────────────────────── -->
+        <aside class="panel" id="props"></aside>
+    </div>
+
+    <dialog id="pdf-dialog">
+        <div class="dialog-head">
+            <strong id="pdf-dialog-title">Preview</strong>
+            <button id="pdf-dialog-close" class="btn small">Close</button>
+        </div>
+        <iframe id="pdf-frame" title="PDF preview"></iframe>
+    </dialog>
+
+    <input type="file" id="image-input" accept="image/*" hidden />
+    <input type="file" id="font-input" accept=".ttf,font/ttf" hidden />
+
+    <script src="./countryList.js"></script>
+    <script type="module" src="./certificates/js/app.js"></script>
+</body>
+
+</html>
